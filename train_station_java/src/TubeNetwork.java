@@ -10,43 +10,32 @@ import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
-public class Test {
+public class TubeNetwork {
 
     Connection conn = null;
-    Statement stmt = null;
 
     public static void main(String[] args) {
-        Test test = new Test();
-        test.jdbc_init();
-        test.create_tables();
-        test.process_json();
-
+        TubeNetwork network = new TubeNetwork();
+        network.createTables();
+        network.loadJson();
         while(true) {
-
             Scanner myObj = new Scanner(System.in);  // Create a Scanner object
-
             System.out.println("Enter the number to select your query \n" +
                     "\t 1. Find the lines run through a station \n " +
                     "\t 2. Find the station names in a line");
             try {
                 int option = myObj.nextInt();
                 myObj.nextLine();
-
                 if (option == 1){
                     System.out.println("Enter the station name :");
                     String stationName = myObj.nextLine();
-                    test.print_lines(stationName);
-
-
+                    network.printLines(stationName);
                 } else {
                     if (option == 2){
                         System.out.println("Enter the line name :");
                         String lineName = myObj.nextLine();
-                        test.print_stations(lineName);
-
-
-                    }
-                    else{
+                        network.printStations(lineName);
+                    } else {
                         System.out.println("Invalid Option");
                         break;
                     }
@@ -55,14 +44,10 @@ public class Test {
                 System.out.println("Invalid Option");
                 break;
             }
-
-
-
         }
-
     }
 
-    public void jdbc_init(){
+    public TubeNetwork(){
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
             this.conn = DriverManager.getConnection("jdbc:mysql://localhost/train_stations?" +
@@ -72,7 +57,7 @@ public class Test {
         }
     }
 
-    public void process_json(){
+    public void loadJson(){
         JSONParser parser = new JSONParser();
         try {
             Object file_obj = parser.parse(new FileReader("../train-network.json"));
@@ -84,7 +69,7 @@ public class Test {
             Iterator<JSONObject> iterator = stations.iterator();
             while (iterator.hasNext()) {
                 JSONObject station = iterator.next();
-                this.add_station(station.get("id").toString(),station.get("name").toString(), station.get("longitude").toString(),
+                this.addStation(station.get("id").toString(),station.get("name").toString(), station.get("longitude").toString(),
                         station.get("latitude").toString());
             }
 
@@ -94,111 +79,95 @@ public class Test {
             int counter =0;
             while (iterator.hasNext()) {
                 JSONObject line = iterator.next();
-                this.add_line(counter,line.get("name").toString());
+                this.addLine(counter,line.get("name").toString());
                 JSONArray line_stations = (JSONArray) line.get("stations");
                 Iterator<String> station_iterator = line_stations.iterator();
                 while (station_iterator.hasNext()) {
-                    this.add_station_line(station_iterator.next(),counter);
+                    this.addStationLine(station_iterator.next(),counter);
                 }
                 counter = counter +1;
             }
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        } catch (ParseException e) {
+        } catch (IOException | ParseException e) {
             e.printStackTrace();
         }
     }
 
-    public void create_tables(){
+    public void createTables(){
         try {
             // The newInstance() call is a work around for some
             // broken Java implementations
+            Statement stmt = this.conn.createStatement();
 
-            this.stmt = this.conn.createStatement();
-            this.stmt.execute("CREATE TABLE IF NOT EXISTS station(" +
+            stmt.execute("CREATE TABLE IF NOT EXISTS station(" +
                     "id varchar(255) not NULL," +
                     "name varchar(255),"+
                     "longitude double," +
                     "latitude double," +
                     "PRIMARY KEY (id));");
 
-            this.stmt.execute("CREATE TABLE IF NOT EXISTS line(" +
+            stmt.execute("CREATE TABLE IF NOT EXISTS line(" +
                     "id int not NULL," +
                     "name varchar(255),"+
                     "PRIMARY KEY (id));");
 
-            this.stmt.execute("CREATE TABLE IF NOT EXISTS station_line(" +
+            stmt.execute("CREATE TABLE IF NOT EXISTS station_line(" +
                     "stationId varchar(255) not NULL," +
                     "lineId int not null,"+
                     "PRIMARY KEY (stationId,lineId)," +
                     "FOREIGN KEY (stationId) REFERENCES station(id)," +
                     "FOREIGN KEY (lineId) REFERENCES line(id));");
-
-
-
-        }catch (SQLException ex) {
+        } catch (SQLException ex) {
             // handle any errors
             System.out.println("SQLException: " + ex.getMessage());
             System.out.println("SQLState: " + ex.getSQLState());
             System.out.println("VendorError: " + ex.getErrorCode());
         }
     }
-    public void add_station(String id, String name, String longitude, String latitude){
-
-       try{
+    public void addStation(String id, String name, String longitude, String latitude){
+       try {
            PreparedStatement ps = conn.prepareStatement("INSERT INTO station values (?, ?,?,?)");
            ps.setString(1, id);
            ps.setString(2, name);
            ps.setDouble(3,Double.parseDouble(longitude));
            ps.setDouble(4,Double.parseDouble(latitude));
            ps.executeUpdate();
-        }catch (SQLException ex) {
+        } catch (SQLException ex) {
             // handle any errors
             System.out.println("SQLException: " + ex.getMessage());
             System.out.println("SQLState: " + ex.getSQLState());
             System.out.println("VendorError: " + ex.getErrorCode());
         }
-
     }
 
-    public void add_line(int id,String name){
-
-        try{
+    public void addLine(int id, String name){
+        try {
             PreparedStatement ps = conn.prepareStatement("INSERT INTO line values (?, ?)");
             ps.setInt(1, id);
             ps.setString(2, name);
             ps.executeUpdate();
-
-        }catch (SQLException ex) {
+        } catch (SQLException ex) {
             // handle any errors
             System.out.println("SQLException: " + ex.getMessage());
             System.out.println("SQLState: " + ex.getSQLState());
             System.out.println("VendorError: " + ex.getErrorCode());
         }
-
     }
-    public void add_station_line(String station_id, int line_id){
-
-        try{
+    public void addStationLine(String station_id, int line_id){
+        try {
             PreparedStatement ps = conn.prepareStatement("INSERT INTO station_line values (?, ?)");
             ps.setString(1, station_id);
             ps.setInt(2, line_id);
             ps.executeUpdate();
-
-        }catch (SQLException ex) {
+        } catch (SQLException ex) {
             // handle any errors
             System.out.println("SQLException: " + ex.getMessage());
             System.out.println("SQLState: " + ex.getSQLState());
             System.out.println("VendorError: " + ex.getErrorCode());
         }
-
     }
 
-    public void print_lines(String station_name){
-
-        try{
+    public void printLines(String station_name){
+        try {
             PreparedStatement ps = conn.prepareStatement("SELECT name from line " +
                             "WHERE id in (" +
                                 "SELECT lineId from station_line " +
@@ -214,18 +183,16 @@ public class Test {
             {
                 System.out.println(rs.getString(1)); //or rs.getString("column name");
             }
-        }catch (SQLException ex) {
+        } catch (SQLException ex) {
             // handle any errors
             System.out.println("SQLException: " + ex.getMessage());
             System.out.println("SQLState: " + ex.getSQLState());
             System.out.println("VendorError: " + ex.getErrorCode());
         }
-
     }
 
-    public void print_stations(String line_name){
-
-        try{
+    public void printStations(String line_name){
+        try {
             PreparedStatement ps = conn.prepareStatement("SELECT name from station " +
                     "WHERE id in (" +
                     "SELECT stationId from station_line " +
@@ -241,12 +208,11 @@ public class Test {
             {
                 System.out.println(rs.getString(1)); //or rs.getString("column name");
             }
-        }catch (SQLException ex) {
+        } catch (SQLException ex) {
             // handle any errors
             System.out.println("SQLException: " + ex.getMessage());
             System.out.println("SQLState: " + ex.getSQLState());
             System.out.println("VendorError: " + ex.getErrorCode());
         }
-
     }
 }
